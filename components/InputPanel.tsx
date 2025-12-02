@@ -87,9 +87,15 @@ export default function InputPanel({
         const data = await response.json();
         setSuggestions(data);
         setShowSuggestions(true);
+      } else {
+        console.error("Failed to fetch suggestions:", response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Error details:", errorData);
       }
     } catch (error) {
       console.error("Error fetching suggestions:", error);
+      // Show user-friendly error
+      setSuggestions([]);
     }
   };
 

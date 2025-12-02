@@ -134,43 +134,67 @@ export interface ExplanationImage {
 // Problem queries
 export const problems = {
   getAll: () => {
-    if (!db) return [];
-    const stmt = db.prepare("SELECT * FROM problems ORDER BY problem_number");
-    const results = stmt.all() as any[];
-    return results.map((result) => ({
-      ...result,
-      topics: typeof result.topics === "string" ? JSON.parse(result.topics) : result.topics,
-      patterns: typeof result.patterns === "string" ? JSON.parse(result.patterns) : result.patterns,
-    })) as Problem[];
+    if (!db) {
+      console.warn("[DB] Database not available, returning empty array");
+      return [];
+    }
+    try {
+      const stmt = db.prepare("SELECT * FROM problems ORDER BY problem_number");
+      const results = stmt.all() as any[];
+      return results.map((result) => ({
+        ...result,
+        topics: typeof result.topics === "string" ? JSON.parse(result.topics) : result.topics,
+        patterns: typeof result.patterns === "string" ? JSON.parse(result.patterns) : result.patterns,
+      })) as Problem[];
+    } catch (error) {
+      console.error("[DB] Error in getAll:", error);
+      return [];
+    }
   },
 
   getByNumber: (number: number) => {
-    if (!db) return undefined;
-    const stmt = db.prepare("SELECT * FROM problems WHERE problem_number = ?");
-    const result = stmt.get(number) as any;
-    if (!result) return undefined;
-    return {
-      ...result,
-      topics: typeof result.topics === "string" ? JSON.parse(result.topics) : result.topics,
-      patterns: typeof result.patterns === "string" ? JSON.parse(result.patterns) : result.patterns,
-    } as Problem;
+    if (!db) {
+      console.warn(`[DB] Database not available, cannot get problem ${number}`);
+      return undefined;
+    }
+    try {
+      const stmt = db.prepare("SELECT * FROM problems WHERE problem_number = ?");
+      const result = stmt.get(number) as any;
+      if (!result) return undefined;
+      return {
+        ...result,
+        topics: typeof result.topics === "string" ? JSON.parse(result.topics) : result.topics,
+        patterns: typeof result.patterns === "string" ? JSON.parse(result.patterns) : result.patterns,
+      } as Problem;
+    } catch (error) {
+      console.error(`[DB] Error in getByNumber(${number}):`, error);
+      return undefined;
+    }
   },
 
   search: (query: string, limit: number = 20) => {
-    if (!db) return [];
-    const stmt = db.prepare(`
+    if (!db) {
+      console.warn(`[DB] Database not available, cannot search for "${query}"`);
+      return [];
+    }
+    try {
+      const stmt = db.prepare(`
       SELECT * FROM problems 
       WHERE problem_number LIKE ? OR title LIKE ? OR slug LIKE ?
       ORDER BY problem_number
       LIMIT ?
     `);
-    const searchTerm = `%${query}%`;
-    const results = stmt.all(searchTerm, searchTerm, searchTerm, limit) as any[];
-    return results.map((result) => ({
-      ...result,
-      topics: typeof result.topics === "string" ? JSON.parse(result.topics) : result.topics,
-      patterns: typeof result.patterns === "string" ? JSON.parse(result.patterns) : result.patterns,
-    })) as Problem[];
+      const searchTerm = `%${query}%`;
+      const results = stmt.all(searchTerm, searchTerm, searchTerm, limit) as any[];
+      return results.map((result) => ({
+        ...result,
+        topics: typeof result.topics === "string" ? JSON.parse(result.topics) : result.topics,
+        patterns: typeof result.patterns === "string" ? JSON.parse(result.patterns) : result.patterns,
+      })) as Problem[];
+    } catch (error) {
+      console.error(`[DB] Error in search("${query}"):`, error);
+      return [];
+    }
   },
 
   insert: (problem: Omit<Problem, "id">) => {
