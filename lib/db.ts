@@ -222,21 +222,49 @@ export const problems = {
       return [];
     }
     try {
-      const stmt = db.prepare(`
-      SELECT * FROM problems 
-      WHERE problem_number LIKE ? OR title LIKE ? OR slug LIKE ?
-      ORDER BY problem_number
-      LIMIT ?
-    `);
-      const searchTerm = `%${query}%`;
-      const results = stmt.all(searchTerm, searchTerm, searchTerm, limit) as any[];
+      // Check if query is a number (for problem_number search)
+      const queryNum = parseInt(query.trim());
+      const isNumeric = !isNaN(queryNum);
+      
+      let stmt;
+      let results: any[];
+      
+      if (isNumeric) {
+        // If query is a number, search by exact problem_number first, then title/slug
+        console.log(`[DB] Searching for problem number: ${queryNum}`);
+        stmt = db.prepare(`
+          SELECT * FROM problems 
+          WHERE problem_number = ? OR problem_number LIKE ? OR title LIKE ? OR slug LIKE ?
+          ORDER BY 
+            CASE WHEN problem_number = ? THEN 1 ELSE 2 END,
+            problem_number
+          LIMIT ?
+        `);
+        const searchTerm = `%${query}%`;
+        results = stmt.all(queryNum, searchTerm, searchTerm, searchTerm, queryNum, limit) as any[];
+      } else {
+        // Text search in title and slug
+        console.log(`[DB] Searching for text: "${query}"`);
+        stmt = db.prepare(`
+          SELECT * FROM problems 
+          WHERE title LIKE ? OR slug LIKE ?
+          ORDER BY problem_number
+          LIMIT ?
+        `);
+        const searchTerm = `%${query}%`;
+        results = stmt.all(searchTerm, searchTerm, limit) as any[];
+      }
+      
+      console.log(`[DB] Found ${results.length} results for "${query}"`);
+      
       return results.map((result) => ({
         ...result,
         topics: typeof result.topics === "string" ? JSON.parse(result.topics) : result.topics,
         patterns: typeof result.patterns === "string" ? JSON.parse(result.patterns) : result.patterns,
       })) as Problem[];
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[DB] Error in search("${query}"):`, error);
+      console.error(`[DB] Error details:`, error?.message, error?.stack);
       return [];
     }
   },

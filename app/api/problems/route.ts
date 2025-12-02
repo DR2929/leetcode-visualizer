@@ -12,6 +12,11 @@ export async function GET(request: NextRequest) {
     if (query) {
       const results = problems.search(query, limit);
       console.log(`[API] Found ${results.length} problems matching "${query}"`);
+      if (results.length === 0) {
+        // Log additional info for debugging
+        const allCount = problems.getAll().length;
+        console.log(`[API] Total problems in database: ${allCount}`);
+      }
       return NextResponse.json(results);
     } else {
       const all = problems.getAll();
