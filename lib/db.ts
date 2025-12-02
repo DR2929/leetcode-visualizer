@@ -2,23 +2,43 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const dbPath = path.join(process.cwd(), "data", "leetcode.db");
-const dbDir = path.dirname(dbPath);
+// Check if we're on Vercel (serverless) - SQLite won't work there
+const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV;
 
-// Ensure data directory exists
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+let db: Database | null = null;
+
+if (!isVercel) {
+  // Only initialize SQLite if not on Vercel
+  try {
+    const dbPath = path.join(process.cwd(), "data", "leetcode.db");
+    const dbDir = path.dirname(dbPath);
+
+    // Ensure data directory exists
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+
+    db = new Database(dbPath);
+  } catch (error) {
+    console.error("Failed to initialize SQLite database:", error);
+    db = null;
+  }
 }
 
-const db = new Database(dbPath);
-
-// Enable foreign keys
-db.pragma("foreign_keys = ON");
+// Enable foreign keys (only if db is initialized)
+if (db) {
+  db.pragma("foreign_keys = ON");
+}
 
 // Initialize database schema
 export function initDatabase() {
+  if (!db) {
+    console.warn("Database not available (likely on Vercel serverless). Using fallback mode.");
+    return;
+  }
+  
   // Problems table
-  db.exec(`
+  db!.exec(`
     CREATE TABLE IF NOT EXISTS problems (
       id INTEGER PRIMARY KEY,
       problem_number INTEGER UNIQUE NOT NULL,
@@ -36,7 +56,7 @@ export function initDatabase() {
   `);
 
   // Explanations table
-  db.exec(`
+  db!.exec(`
     CREATE TABLE IF NOT EXISTS explanations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       problem_id INTEGER NOT NULL,
@@ -51,7 +71,7 @@ export function initDatabase() {
   `);
 
   // Images table
-  db.exec(`
+  db!.exec(`
     CREATE TABLE IF NOT EXISTS explanation_images (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       problem_id INTEGER NOT NULL,
@@ -65,7 +85,7 @@ export function initDatabase() {
   `);
 
   // Create indexes
-  db.exec(`
+  db!.exec(`
     CREATE INDEX IF NOT EXISTS idx_problems_number ON problems(problem_number);
     CREATE INDEX IF NOT EXISTS idx_problems_slug ON problems(slug);
     CREATE INDEX IF NOT EXISTS idx_explanations_problem ON explanations(problem_id);
@@ -109,6 +129,7 @@ export interface ExplanationImage {
 // Problem queries
 export const problems = {
   getAll: () => {
+    if (!db) return [];
     const stmt = db.prepare("SELECT * FROM problems ORDER BY problem_number");
     const results = stmt.all() as any[];
     return results.map((result) => ({
@@ -119,6 +140,7 @@ export const problems = {
   },
 
   getByNumber: (number: number) => {
+    if (!db) return undefined;
     const stmt = db.prepare("SELECT * FROM problems WHERE problem_number = ?");
     const result = stmt.get(number) as any;
     if (!result) return undefined;
@@ -130,6 +152,7 @@ export const problems = {
   },
 
   search: (query: string, limit: number = 20) => {
+    if (!db) return [];
     const stmt = db.prepare(`
       SELECT * FROM problems 
       WHERE problem_number LIKE ? OR title LIKE ? OR slug LIKE ?
@@ -146,6 +169,7 @@ export const problems = {
   },
 
   insert: (problem: Omit<Problem, "id">) => {
+    if (!db) return { lastInsertRowid: 0, changes: 0 };
     const stmt = db.prepare(`
       INSERT INTO problems (problem_number, title, slug, difficulty, description, constraints, topics, patterns, url)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -164,6 +188,7 @@ export const problems = {
   },
 
   update: (id: number, problem: Partial<Problem>) => {
+    if (!db) return;
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -189,6 +214,7 @@ export const problems = {
 // Explanation queries
 export const explanations = {
   get: (problemId: number, language: string, mode: string) => {
+    if (!db) return undefined;
     const stmt = db.prepare(
       "SELECT * FROM explanations WHERE problem_id = ? AND language = ? AND mode = ?"
     );
@@ -202,6 +228,7 @@ export const explanations = {
     solutionCode: string,
     explanationData: any
   ) => {
+    if (!db) return { lastInsertRowid: 0, changes: 0 };
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO explanations (problem_id, language, mode, solution_code, explanation_data)
       VALUES (?, ?, ?, ?, ?)
@@ -219,6 +246,7 @@ export const explanations = {
 // Image queries
 export const images = {
   get: (problemId: number, stepNumber: number) => {
+    if (!db) return undefined;
     const stmt = db.prepare(
       "SELECT * FROM explanation_images WHERE problem_id = ? AND step_number = ?"
     );
@@ -226,6 +254,7 @@ export const images = {
   },
 
   getAllForProblem: (problemId: number) => {
+    if (!db) return [];
     const stmt = db.prepare(
       "SELECT * FROM explanation_images WHERE problem_id = ? ORDER BY step_number"
     );
@@ -238,6 +267,7 @@ export const images = {
     imageUrl: string,
     imageData?: Buffer
   ) => {
+    if (!db) return { lastInsertRowid: 0, changes: 0 };
     const stmt = db.prepare(`
       INSERT OR REPLACE INTO explanation_images (problem_id, step_number, image_url, image_data)
       VALUES (?, ?, ?, ?)
