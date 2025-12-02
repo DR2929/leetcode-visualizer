@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "tsx scripts/seed-leetcode.ts",
-    "postinstall": "npm run build"
+    "db:seed": "tsx scripts/seed-leetcode.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

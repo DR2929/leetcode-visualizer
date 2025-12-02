@@ -1,11 +1,11 @@
-import Database from "better-sqlite3";
+import Database, { type Database as DatabaseType } from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
 // Check if we're on Vercel (serverless) - SQLite won't work there
 const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV;
 
-let db: Database | null = null;
+let db: DatabaseType | null = null;
 
 if (!isVercel) {
   // Only initialize SQLite if not on Vercel

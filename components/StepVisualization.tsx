@@ -137,7 +137,7 @@ export default function StepVisualization({ step }: StepVisualizationProps) {
           <div className="font-semibold mb-1">⚠️ Array data missing</div>
           <div className="text-xs">
             The step has index variables (i={indexVars.i ?? indexVars.index}) but no array was found.
-            This usually means the GPT didn't include the array in step variables. Try regenerating the explanation.
+            This usually means the GPT didn&apos;t include the array in step variables. Try regenerating the explanation.
           </div>
         </div>
       )}
