@@ -10,19 +10,39 @@ let db: DatabaseType | null = null;
 if (!isVercel) {
   // Only initialize SQLite if not on Vercel
   try {
+    // Use persistent storage location that works on Railway
+    // Railway persists files in the project directory
     const dbPath = path.join(process.cwd(), "data", "leetcode.db");
     const dbDir = path.dirname(dbPath);
+
+    console.log(`[DB] Initializing database at: ${dbPath}`);
+    console.log(`[DB] Current working directory: ${process.cwd()}`);
+    console.log(`[DB] Database directory exists: ${fs.existsSync(dbDir)}`);
 
     // Ensure data directory exists
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true });
+      console.log(`[DB] Created database directory: ${dbDir}`);
     }
 
+    // Check if database file exists
+    const dbExists = fs.existsSync(dbPath);
+    console.log(`[DB] Database file exists: ${dbExists}`);
+
     db = new Database(dbPath);
-  } catch (error) {
-    console.error("Failed to initialize SQLite database:", error);
+    console.log(`[DB] Database initialized successfully`);
+    
+    // Verify we can query
+    const testQuery = db.prepare("SELECT COUNT(*) as count FROM problems");
+    const count = testQuery.get() as { count: number };
+    console.log(`[DB] Current problem count in database: ${count.count}`);
+  } catch (error: any) {
+    console.error("[DB] Failed to initialize SQLite database:", error);
+    console.error("[DB] Error details:", error?.message, error?.stack);
     db = null;
   }
+} else {
+  console.log("[DB] Running on Vercel - database disabled");
 }
 
 // Enable foreign keys (only if db is initialized)
