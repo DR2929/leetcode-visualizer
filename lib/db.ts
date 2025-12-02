@@ -30,12 +30,23 @@ if (!isVercel) {
     console.log(`[DB] Database file exists: ${dbExists}`);
 
     db = new Database(dbPath);
-    console.log(`[DB] Database initialized successfully`);
+    console.log(`[DB] Database connection opened successfully`);
     
-    // Verify we can query
-    const testQuery = db.prepare("SELECT COUNT(*) as count FROM problems");
-    const count = testQuery.get() as { count: number };
-    console.log(`[DB] Current problem count in database: ${count.count}`);
+    // Initialize schema immediately after opening
+    initDatabase();
+    
+    // Verify we can query (after schema is created)
+    try {
+      const testQuery = db.prepare("SELECT COUNT(*) as count FROM problems");
+      const count = testQuery.get() as { count: number };
+      console.log(`[DB] Current problem count in database: ${count.count}`);
+    } catch (error: any) {
+      if (error?.code === 'SQLITE_ERROR' && error?.message?.includes('no such table')) {
+        console.log(`[DB] Tables don't exist yet - will be created by initDatabase`);
+      } else {
+        console.error(`[DB] Error checking problem count:`, error);
+      }
+    }
   } catch (error: any) {
     console.error("[DB] Failed to initialize SQLite database:", error);
     console.error("[DB] Error details:", error?.message, error?.stack);
@@ -53,12 +64,15 @@ if (db) {
 // Initialize database schema
 export function initDatabase() {
   if (!db) {
-    console.warn("Database not available (likely on Vercel serverless). Using fallback mode.");
+    console.warn("[DB] Database not available (likely on Vercel serverless). Using fallback mode.");
     return;
   }
   
-  // Problems table
-  db.exec(`
+  try {
+    console.log("[DB] Initializing database schema...");
+    
+    // Problems table
+    db.exec(`
     CREATE TABLE IF NOT EXISTS problems (
       id INTEGER PRIMARY KEY,
       problem_number INTEGER UNIQUE NOT NULL,
@@ -104,22 +118,32 @@ export function initDatabase() {
     )
   `);
 
-  // Create indexes
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_problems_number ON problems(problem_number);
-    CREATE INDEX IF NOT EXISTS idx_problems_slug ON problems(slug);
-    CREATE INDEX IF NOT EXISTS idx_explanations_problem ON explanations(problem_id);
-    CREATE INDEX IF NOT EXISTS idx_images_problem ON explanation_images(problem_id);
-  `);
+    // Create indexes
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_problems_number ON problems(problem_number);
+      CREATE INDEX IF NOT EXISTS idx_problems_slug ON problems(slug);
+      CREATE INDEX IF NOT EXISTS idx_explanations_problem ON explanations(problem_id);
+      CREATE INDEX IF NOT EXISTS idx_images_problem ON explanation_images(problem_id);
+    `);
+    
+    console.log("[DB] Database schema initialized successfully");
+    
+    // Verify tables exist
+    const tables = db.prepare(`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name IN ('problems', 'explanations', 'explanation_images')
+    `).all() as { name: string }[];
+    
+    console.log(`[DB] Tables created: ${tables.map(t => t.name).join(", ")}`);
+  } catch (error: any) {
+    console.error("[DB] Error initializing database schema:", error);
+    console.error("[DB] Error details:", error?.message);
+    throw error; // Re-throw so we know initialization failed
+  }
 }
 
-// Initialize on import (with error handling)
-try {
-  initDatabase();
-} catch (error) {
-  console.error("Failed to initialize database schema:", error);
-  // Continue without database - app will work but without caching
-}
+// Schema initialization is now called immediately after database connection is opened
+// This ensures tables are created before any queries are attempted
 
 export interface Problem {
   id: number;
