@@ -38,7 +38,7 @@ export function initDatabase() {
   }
   
   // Problems table
-  db!.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS problems (
       id INTEGER PRIMARY KEY,
       problem_number INTEGER UNIQUE NOT NULL,
@@ -56,7 +56,7 @@ export function initDatabase() {
   `);
 
   // Explanations table
-  db!.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS explanations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       problem_id INTEGER NOT NULL,
@@ -71,7 +71,7 @@ export function initDatabase() {
   `);
 
   // Images table
-  db!.exec(`
+  db.exec(`
     CREATE TABLE IF NOT EXISTS explanation_images (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       problem_id INTEGER NOT NULL,
@@ -85,7 +85,7 @@ export function initDatabase() {
   `);
 
   // Create indexes
-  db!.exec(`
+  db.exec(`
     CREATE INDEX IF NOT EXISTS idx_problems_number ON problems(problem_number);
     CREATE INDEX IF NOT EXISTS idx_problems_slug ON problems(slug);
     CREATE INDEX IF NOT EXISTS idx_explanations_problem ON explanations(problem_id);
@@ -93,8 +93,13 @@ export function initDatabase() {
   `);
 }
 
-// Initialize on import
-initDatabase();
+// Initialize on import (with error handling)
+try {
+  initDatabase();
+} catch (error) {
+  console.error("Failed to initialize database schema:", error);
+  // Continue without database - app will work but without caching
+}
 
 export interface Problem {
   id: number;
