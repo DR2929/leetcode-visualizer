@@ -1,5 +1,5 @@
 import axios from "axios";
-import { problems } from "../lib/db";
+import { problems, initDatabase } from "../lib/db";
 
 // LeetCode GraphQL endpoint
 const LEETCODE_API = "https://leetcode.com/graphql/";
@@ -100,6 +100,15 @@ async function fetchProblemDetails(slug: string): Promise<{
 }
 
 async function seedDatabase() {
+  console.log("Initializing database schema...");
+  try {
+    initDatabase();
+    console.log("Database schema initialized successfully.");
+  } catch (error: any) {
+    console.error("Failed to initialize database schema:", error?.message);
+    throw error;
+  }
+
   console.log("Fetching LeetCode problems...");
   const leetcodeProblems = await fetchLeetCodeProblems(200); // Fetch first 200 problems
 
