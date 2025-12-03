@@ -100,20 +100,20 @@ async function fetchProblemDetails(slug: string): Promise<{
 }
 
 async function seedDatabase() {
-  // Only initialize schema if not already initialized (avoid duplicate calls)
+  // Note: initDatabase() is already called when lib/db is imported
+  // We just need to verify schema exists, but don't call initDatabase again
+  // to avoid duplicate initialization
   try {
     const { problems } = await import("../lib/db");
     const count = problems.getAll().length;
-    if (count === 0) {
-      console.log("Initializing database schema...");
-      initDatabase();
-      console.log("Database schema initialized successfully.");
-    } else {
-      console.log(`Database already has ${count} problems. Schema should be initialized.`);
+    if (count > 0) {
+      console.log(`Database already has ${count} problems. Skipping seed.`);
+      return;
     }
+    console.log("Database is empty. Proceeding with seed...");
   } catch (error: any) {
-    console.error("Failed to initialize database schema:", error?.message);
-    // Don't throw - try to continue anyway
+    console.error("Failed to check database:", error?.message);
+    // Continue anyway - initDatabase should have been called already
   }
 
   console.log("Fetching LeetCode problems...");

@@ -45,23 +45,32 @@ if (!isVercel) {
       // This runs in background to avoid blocking server startup
       if (count.count === 0 && process.env.AUTO_SEED_DB !== "false") {
         console.log(`[DB] Database is empty. Auto-seeding in background...`);
-        // Use setTimeout to avoid blocking and potential circular imports
-        setTimeout(() => {
+        // Use setImmediate to avoid blocking and ensure it runs after module load
+        setImmediate(() => {
+          // Use dynamic import to avoid circular dependency issues
           import("../scripts/seed-leetcode")
-            .then(({ seedDatabase }) => {
-              console.log(`[DB] Starting auto-seed...`);
-              seedDatabase()
-                .then(() => {
-                  console.log(`[DB] ✅ Auto-seeding completed successfully`);
-                })
-                .catch((error: any) => {
-                  console.error(`[DB] ❌ Auto-seeding failed:`, error?.message);
-                });
+            .then((module) => {
+              const { seedDatabase } = module;
+              if (typeof seedDatabase === "function") {
+                console.log(`[DB] Starting auto-seed...`);
+                // Don't await - let it run in background
+                seedDatabase()
+                  .then(() => {
+                    console.log(`[DB] ✅ Auto-seeding completed successfully`);
+                  })
+                  .catch((error: any) => {
+                    console.error(`[DB] ❌ Auto-seeding failed:`, error?.message);
+                    console.error(`[DB] Error stack:`, error?.stack);
+                  });
+              } else {
+                console.error(`[DB] seedDatabase is not a function`);
+              }
             })
             .catch((error: any) => {
               console.error(`[DB] ❌ Failed to load seed script:`, error?.message);
+              console.error(`[DB] Error stack:`, error?.stack);
             });
-        }, 1000); // Wait 1 second to ensure server is fully started
+        });
       }
     } catch (error: any) {
       if (error?.code === 'SQLITE_ERROR' && error?.message?.includes('no such table')) {
