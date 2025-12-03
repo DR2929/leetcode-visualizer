@@ -100,13 +100,20 @@ async function fetchProblemDetails(slug: string): Promise<{
 }
 
 async function seedDatabase() {
-  console.log("Initializing database schema...");
+  // Only initialize schema if not already initialized (avoid duplicate calls)
   try {
-    initDatabase();
-    console.log("Database schema initialized successfully.");
+    const { problems } = await import("../lib/db");
+    const count = problems.getAll().length;
+    if (count === 0) {
+      console.log("Initializing database schema...");
+      initDatabase();
+      console.log("Database schema initialized successfully.");
+    } else {
+      console.log(`Database already has ${count} problems. Schema should be initialized.`);
+    }
   } catch (error: any) {
     console.error("Failed to initialize database schema:", error?.message);
-    throw error;
+    // Don't throw - try to continue anyway
   }
 
   console.log("Fetching LeetCode problems...");

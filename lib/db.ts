@@ -40,6 +40,29 @@ if (!isVercel) {
       const testQuery = db.prepare("SELECT COUNT(*) as count FROM problems");
       const count = testQuery.get() as { count: number };
       console.log(`[DB] Current problem count in database: ${count.count}`);
+      
+      // Auto-seed if database is empty (useful for Railway deployments)
+      // This runs in background to avoid blocking server startup
+      if (count.count === 0 && process.env.AUTO_SEED_DB !== "false") {
+        console.log(`[DB] Database is empty. Auto-seeding in background...`);
+        // Use setTimeout to avoid blocking and potential circular imports
+        setTimeout(() => {
+          import("../scripts/seed-leetcode")
+            .then(({ seedDatabase }) => {
+              console.log(`[DB] Starting auto-seed...`);
+              seedDatabase()
+                .then(() => {
+                  console.log(`[DB] ✅ Auto-seeding completed successfully`);
+                })
+                .catch((error: any) => {
+                  console.error(`[DB] ❌ Auto-seeding failed:`, error?.message);
+                });
+            })
+            .catch((error: any) => {
+              console.error(`[DB] ❌ Failed to load seed script:`, error?.message);
+            });
+        }, 1000); // Wait 1 second to ensure server is fully started
+      }
     } catch (error: any) {
       if (error?.code === 'SQLITE_ERROR' && error?.message?.includes('no such table')) {
         console.log(`[DB] Tables don't exist yet - will be created by initDatabase`);
