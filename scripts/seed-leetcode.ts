@@ -116,15 +116,21 @@ async function seedDatabase() {
     // Continue anyway - initDatabase should have been called already
   }
 
-  console.log("Fetching LeetCode problems...");
+  console.log("[SEED] Fetching LeetCode problems from GraphQL API...");
   const leetcodeProblems = await fetchLeetCodeProblems(200); // Fetch first 200 problems
 
-  console.log(`Found ${leetcodeProblems.length} problems. Seeding database...`);
+  console.log(`[SEED] Found ${leetcodeProblems.length} problems. Starting database seeding...`);
+  console.log(`[SEED] This will take approximately ${Math.ceil(leetcodeProblems.length * 0.2)} seconds due to rate limiting.`);
 
   let inserted = 0;
   let skipped = 0;
+  let errors = 0;
 
-  for (const problem of leetcodeProblems) {
+  for (let i = 0; i < leetcodeProblems.length; i++) {
+    const problem = leetcodeProblems[i];
+    if ((i + 1) % 50 === 0) {
+      console.log(`[SEED] Progress: ${i + 1}/${leetcodeProblems.length} problems processed (${inserted} inserted, ${skipped} skipped, ${errors} errors)`);
+    }
     try {
       // Check if problem already exists
       const existing = problems.getByNumber(parseInt(problem.questionFrontendId));
@@ -157,22 +163,24 @@ async function seedDatabase() {
       });
 
       inserted++;
-      console.log(`Inserted: ${problem.questionFrontendId}. ${problem.title}`);
+      if (inserted <= 5 || inserted % 25 === 0) {
+        console.log(`[SEED] ✅ Inserted: ${problem.questionFrontendId}. ${problem.title}`);
+      }
 
       // Rate limiting - wait 200ms between requests
       await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (error: any) {
+      errors++;
       console.error(
-        `Error processing problem ${problem.questionFrontendId}:`,
+        `[SEED] ❌ Error processing problem ${problem.questionFrontendId}:`,
         error?.message || error
       );
       // Continue with next problem even if one fails
     }
   }
 
-  console.log(`\nSeeding complete!`);
-  console.log(`Inserted: ${inserted} problems`);
-  console.log(`Skipped: ${skipped} existing problems`);
+  console.log(`\n[SEED] ✅ Seeding complete!`);
+  console.log(`[SEED] Summary: ${inserted} inserted, ${skipped} skipped, ${errors} errors`);
   
   if (inserted === 0 && skipped > 0) {
     console.log(`\nAll problems already exist in database. To re-seed, delete data/leetcode.db first.`);

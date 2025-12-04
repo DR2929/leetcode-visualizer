@@ -44,33 +44,44 @@ if (!isVercel) {
       // Auto-seed if database is empty (useful for Railway deployments)
       // This runs in background to avoid blocking server startup
       if (count.count === 0 && process.env.AUTO_SEED_DB !== "false") {
-        console.log(`[DB] Database is empty. Auto-seeding in background...`);
-        // Use setImmediate to avoid blocking and ensure it runs after module load
-        setImmediate(() => {
+        console.log(`[DB] ⚠️  Database is empty (${count.count} problems). Auto-seeding in background...`);
+        console.log(`[DB] This may take 1-2 minutes. The app will continue to work during seeding.`);
+        // Use setTimeout to ensure server is fully started before seeding
+        // Railway needs time to fully initialize the environment
+        setTimeout(() => {
+          console.log(`[DB] 🚀 Starting auto-seed process...`);
           // Use dynamic import to avoid circular dependency issues
           import("../scripts/seed-leetcode")
             .then((module) => {
               const { seedDatabase } = module;
               if (typeof seedDatabase === "function") {
-                console.log(`[DB] Starting auto-seed...`);
+                console.log(`[DB] ✅ Seed function loaded. Beginning database seeding...`);
                 // Don't await - let it run in background
                 seedDatabase()
                   .then(() => {
-                    console.log(`[DB] ✅ Auto-seeding completed successfully`);
+                    // Verify seeding completed
+                    const verifyQuery = db.prepare("SELECT COUNT(*) as count FROM problems");
+                    const verifyCount = verifyQuery.get() as { count: number };
+                    console.log(`[DB] ✅ Auto-seeding completed successfully! Database now has ${verifyCount.count} problems.`);
                   })
                   .catch((error: any) => {
                     console.error(`[DB] ❌ Auto-seeding failed:`, error?.message);
                     console.error(`[DB] Error stack:`, error?.stack);
+                    console.error(`[DB] You can manually seed by running: npm run db:seed`);
                   });
               } else {
-                console.error(`[DB] seedDatabase is not a function`);
+                console.error(`[DB] ❌ seedDatabase is not a function. Type: ${typeof seedDatabase}`);
               }
             })
             .catch((error: any) => {
               console.error(`[DB] ❌ Failed to load seed script:`, error?.message);
               console.error(`[DB] Error stack:`, error?.stack);
             });
-        });
+        }, 3000); // Wait 3 seconds to ensure server is fully started
+      } else if (count.count > 0) {
+        console.log(`[DB] ✅ Database already seeded with ${count.count} problems.`);
+      } else if (process.env.AUTO_SEED_DB === "false") {
+        console.log(`[DB] ⚠️  Auto-seed is disabled (AUTO_SEED_DB=false).`);
       }
     } catch (error: any) {
       if (error?.code === 'SQLITE_ERROR' && error?.message?.includes('no such table')) {
