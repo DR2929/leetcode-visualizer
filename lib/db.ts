@@ -60,9 +60,13 @@ if (!isVercel) {
                 seedDatabase()
                   .then(() => {
                     // Verify seeding completed
-                    const verifyQuery = db.prepare("SELECT COUNT(*) as count FROM problems");
-                    const verifyCount = verifyQuery.get() as { count: number };
-                    console.log(`[DB] ✅ Auto-seeding completed successfully! Database now has ${verifyCount.count} problems.`);
+                    if (db) {
+                      const verifyQuery = db.prepare("SELECT COUNT(*) as count FROM problems");
+                      const verifyCount = verifyQuery.get() as { count: number };
+                      console.log(`[DB] ✅ Auto-seeding completed successfully! Database now has ${verifyCount.count} problems.`);
+                    } else {
+                      console.log(`[DB] ✅ Auto-seeding completed (database unavailable for verification).`);
+                    }
                   })
                   .catch((error: any) => {
                     console.error(`[DB] ❌ Auto-seeding failed:`, error?.message);

@@ -15,7 +15,8 @@ export async function POST() {
     }
 
     // Dynamically import and run seed
-    const { seedDatabase } = await import("@/scripts/seed-leetcode");
+    // Use relative path to avoid build issues
+    const { seedDatabase } = await import("../../../scripts/seed-leetcode");
     
     console.log("[API] Manual seed triggered via /api/seed");
     await seedDatabase();
